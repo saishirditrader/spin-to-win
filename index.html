@@ -320,6 +320,7 @@
     .claim-check {
       font-size: 3.5rem; line-height: 1;
       animation: checkAppear .4s .3s both;
+      max-width: 240px;
     }
     @keyframes checkAppear {
       from { transform:scale(0); opacity:0; }
@@ -353,7 +354,7 @@
     .claim-sub {
       font-size: clamp(.85rem,2.5vw,1rem);
       color: rgba(255,255,255,.6); letter-spacing: .1em;
-      max-width: 340px; text-align:center; line-height: 1.6;
+      max-width: 540px; text-align:center; line-height: 1.6;
       margin-top: .6rem;
       animation: fadeSlideUp .5s .5s both;
     }
@@ -403,7 +404,7 @@
     .hint {
       position: relative; z-index: 2; margin-top: 1.2rem;
       font-size: .75rem; letter-spacing: .2em;
-      color: rgba(255,255,255,.28); text-transform: uppercase;
+      color: rgb(255, 255, 255); text-transform: uppercase;
       animation: hintPulse 2.5s ease-in-out infinite;
     }
     @keyframes hintPulse { 0%,100%{opacity:.28;} 50%{opacity:.65;} }
@@ -415,7 +416,9 @@
 <div class="bg-pulse"></div>
 <div id="lasers"></div>
 
-<h1 class="title">✦ SPIN &amp; WIN ✦</h1>
+<!-- <h1 class="title">✦ SPIN &amp; WIN ✦</h1> -->
+ <h1 class="title">✦ OFFER VALID TILL 20th April 2026 ✦</h1>
+ <p class="title" style="font-size: 40px;">✦ SPIN &amp; WIN ✦</p>
 
 <div class="scene" id="scene">
   <div class="pointer">
@@ -442,7 +445,7 @@
   </div>
 </div>
 
-<p class="hint">tap the center logo to spin</p>
+<p class="hint"  style="text-align: center;">**Prizes Cost around ₹10 Lakh will be provided in 3 steps.**</p>
 
 <!-- ═══ PRIZE OVERLAY ═══ -->
 <div class="prize-overlay" id="prizeOverlay">
@@ -473,6 +476,8 @@
     <div class="card-actions">
       <button class="prize-btn btn-primary"   id="claimBtn">🎁 Claim Now</button>
       <button class="prize-btn btn-secondary" id="spinAgainBtn">Spin Again</button>
+      <span style="font-size: 10px; color: white;" >**Prizes Cost around ₹10 Lakh will be provided in 3 steps.**</span> <br>
+      <span style="font-size: 10px; color: white;" >**OFFER VALID TILL 20th April 2026**</span>
     </div>
   </div>
 </div>
@@ -491,15 +496,18 @@
   <div  class="claim-logo-text" id="claimLogoText" style="display:none">✦ SPIN &amp; WIN ✦</div>
 
   <div class="claim-icon-wrap">
-    <span class="claim-check">🎉</span>
+    <!-- <span class="claim-check">🎉</span> -->
+    <img class="claim-check" id="claimPrizeBadgeprizePhoto" src="" alt="">
   </div>
 
   <div class="claim-title">PRIZE CLAIMED!</div>
   <div class="claim-sub">
     Our team will contact you within <strong>24 hours</strong> to process your prize. Keep your phone handy! <br>
     <span style="font-size: 10px;" >**Prizes Cost around ₹10 Lakh will be provided in 3 steps.**</span>
+    <span style="font-size: 10px;" >**OFFER VALID TILL 20th April 2026**</span>
   </div>
   <div class="claim-prize-badge" id="claimPrizeBadge">—</div>
+  
 
   <button class="claim-return-btn" id="returnBtn">🎡 Return to Wheel</button>
 </div>
@@ -511,24 +519,24 @@
   const prizes = [
     {
       label:"Car 50% OFF", brand:"Toyata Glanza",
-      value:"⭐ Upto ₹10 Lakh Savings", color:"#FF2D55", text:"#fff",
+      value:"⭐ Upto ₹6 Lakh Savings", color:"#FF2D55", text:"#fff",
       weight:42, emoji:"🚗",
       img:"images/toyotaGlanza.jpg"
     },
     {
       label:"Car 30% OFF", brand:"Toyata Glanza",
-      value:"⭐ Upto ₹5 Lakh Savings", color:"#FF6B00", text:"#fff",
+      value:"⭐ Upto ₹4 Lakh Savings", color:"#FF6B00", text:"#fff",
       weight:18, emoji:"🚗",
       img:"images/toyotaGlanza.jpg"
     },
     {
       label:"Car 40% OFF", brand:"Toyata Glanza",
-      value:"⭐ Upto ₹7 Lakh Savings", color:"#FF9F0A", text:"#fff",
+      value:"⭐ Upto ₹5 Lakh Savings", color:"#FF9F0A", text:"#fff",
       weight:16, emoji:"🚗",
       img:"images/toyotaGlanza.jpg"
     },
     {
-      label:"EV Cycle", brand:"Hero Electric · Ather · Ola",
+      label:"EV Vehicle", brand:"Hero Electric · Ather · Ola",
       value:"⭐ Worth ₹1.2 Lakh", color:"#34C759", text:"#fff",
       weight:10, emoji:"🚲",
       img:"images/evmotorcycle.jpg"
@@ -707,6 +715,7 @@
   /* ════ CLAIM NOW ════ */
   document.getElementById('claimBtn').addEventListener('click',()=>{
     const prizeName=document.getElementById('prizeName').textContent;
+    const prizePhoto=document.getElementById('prizePhoto').src;
 
     // button feedback
     const btn=document.getElementById('claimBtn');
@@ -715,7 +724,7 @@
     // hide prize overlay after short delay
     setTimeout(()=>{
       closePrize();
-      showClaimScreen(prizeName);
+      showClaimScreen(prizeName,prizePhoto);
     }, 600);
   });
 
@@ -737,8 +746,9 @@ function stopClapping() {
   clapAudio.currentTime = 0;
 }
 
-function showClaimScreen(prizeName){
+function showClaimScreen(prizeName,prizePhoto){
   document.getElementById('claimPrizeBadge').textContent = prizeName;
+  document.getElementById('claimPrizeBadgeprizePhoto').src =prizePhoto;
   document.getElementById('claimScreen').classList.add('show');
 
   launchConfetti();
