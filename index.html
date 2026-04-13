@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spin & Win</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Exo+2:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #FFD700;
+      --gold2: #FFA500;
+      --dark: #0a0a14;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--dark);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-family: 'Exo 2', sans-serif;
+    }
+
+    /* ── starfield ── */
+    #stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+    .star {
+      position: absolute; border-radius: 50%; background: #fff;
+      animation: twinkle var(--d,3s) ease-in-out infinite alternate; opacity: 0;
+    }
+    @keyframes twinkle {
+      from { opacity:0; transform:scale(.5); }
+      to   { opacity:var(--op,.8); transform:scale(1); }
+    }
+
+    .bg-pulse {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(100,60,200,.18) 0%, transparent 70%);
+      animation: bgPulse 4s ease-in-out infinite alternate;
+    }
+    @keyframes bgPulse { from{opacity:.6;} to{opacity:1;} }
+
+    .title {
+      position: relative; z-index: 2; text-align: center;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.8rem,5vw,3.2rem);
+      letter-spacing: .18em; color: var(--gold);
+      text-shadow: 0 0 18px var(--gold2), 0 0 40px rgba(255,165,0,.5);
+      margin-bottom: 1rem;
+    }
+
+    .scene {
+      position: relative; z-index: 2;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .pointer {
+      position: absolute; top: -18px; left: 50%;
+      transform: translateX(-50%); z-index: 20;
+      filter: drop-shadow(0 0 8px rgba(255,60,60,.9));
+    }
+
+    .ring { position: absolute; border-radius: 50%; pointer-events: none; }
+    .ring-outer {
+      background: conic-gradient(#FFD700,#FF6B00,#FF2D55,#AF52DE,#007AFF,#34C759,#FFD700);
+      animation: ringRot 8s linear infinite; filter: blur(1px); opacity:.85;
+    }
+    .ring-inner { background: var(--dark); }
+    @keyframes ringRot { to{transform:rotate(360deg);} }
+
+    #wheelCanvas {
+      border-radius: 50%; display: block; cursor: default;
+      filter: drop-shadow(0 0 30px rgba(255,200,50,.25));
+    }
+
+    /* ── Hub ── */
+    .hub {
+      position: absolute; z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-radius: 50%; cursor: pointer; user-select: none;
+      transition: transform .15s ease;
+      overflow: hidden;
+    }
+    .hub:hover { transform: scale(1.07); }
+    .hub:active { transform: scale(.93); }
+
+    .hub-ring {
+      position: absolute; inset: -6px; border-radius: 50%; z-index: -1;
+      background: conic-gradient(var(--gold),#FF6B00,#FF2D55,var(--gold));
+      animation: ringRot 3s linear infinite;
+    }
+    .hub-bg {
+      position: absolute; inset: 0; border-radius: 50%; z-index: -1;
+      background: radial-gradient(circle at 35% 35%, #2a1a6e, #0d0b22);
+    }
+
+    /* logo image in hub */
+    .hub-logo-img {
+      width: 70%; height: 70%;
+      object-fit: contain;
+      border-radius: 50%;
+      position: relative; z-index: 1;
+      pointer-events: none;
+    }
+    /* fallback text if no logo */
+    .hub-logo-text {
+      font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem;
+      letter-spacing: .12em; color: var(--gold);
+      text-shadow: 0 0 12px var(--gold2); line-height: 1;
+      position: relative; z-index: 1;
+    }
+    .hub-sub {
+      font-size: .48rem; letter-spacing: .18em;
+      color: rgba(255,255,255,.5); margin-top: 2px;
+      text-transform: uppercase; position: relative; z-index: 1;
+    }
+
+    /* ── Bulbs ── */
+    .bulbs-ring { position: absolute; border-radius: 50%; pointer-events: none; z-index: 5; }
+    .bulb {
+      position: absolute; width: 11px; height: 11px; border-radius: 50%;
+      background: var(--gold); box-shadow: 0 0 7px 3px var(--gold2);
+      transform: translate(-50%,-50%);
+      animation: bulbBlink var(--bd,.9s) var(--bdelay,0s) ease-in-out infinite alternate;
+    }
+    @keyframes bulbBlink { from{opacity:1;} to{opacity:.2;box-shadow:none;} }
+
+    /* ══════════════════════════════════
+       PRIZE OVERLAY
+    ══════════════════════════════════ */
+    .prize-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .4s ease;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(3px);
+    }
+    .prize-overlay.show { opacity:1; pointer-events:all; }
+
+    .win-orb {
+      position: fixed; border-radius: 50%; pointer-events: none; z-index: 101;
+      animation: orbFloat var(--od,6s) var(--odel,0s) ease-in-out infinite alternate;
+    }
+    @keyframes orbFloat {
+      from { transform:translate(0,0) scale(1); opacity:.18; }
+      to   { transform:translate(var(--ox,30px),var(--oy,-40px)) scale(1.35); opacity:.40; }
+    }
+
+    .laser {
+      position: fixed; pointer-events: none; z-index: 99;
+      width: 2px; transform-origin: bottom center;
+      animation: laserSweep var(--ls,3s) var(--ld,0s) ease-in-out infinite alternate;
+    }
+    @keyframes laserSweep {
+      from { transform:rotate(var(--la,-30deg)) scaleY(.6); opacity:.4; }
+      to   { transform:rotate(var(--lb,30deg)) scaleY(1.3); opacity:.9; }
+    }
+
+    /* ── prize card ── */
+    .prize-card {
+      position: relative; z-index: 102;
+      background: linear-gradient(160deg,#12082e 0%,#0d0b22 60%,#1a0a00 100%);
+      border: 2px solid var(--gold);
+      border-radius: 28px;
+      width: min(480px, 92vw);
+      text-align: center;
+      box-shadow: 0 0 70px rgba(255,215,0,.35), 0 0 160px rgba(255,100,0,.15);
+      transform: scale(.65) translateY(50px);
+      transition: transform .45s cubic-bezier(.34,1.56,.64,1);
+      overflow: hidden;
+    }
+    .prize-overlay.show .prize-card { transform:scale(1) translateY(0); }
+
+    /* popup top bar with logo */
+    .card-top-bar {
+      display: flex; align-items: center; justify-content: center; gap: .7rem;
+      background: linear-gradient(90deg,#1a0640,#2d0d00,#1a0640);
+      padding: .7rem 1.5rem .6rem;
+      border-bottom: 1px solid rgba(255,215,0,.25);
+    }
+    .popup-logo {
+      width: 36px; height: 36px;
+      object-fit: contain; border-radius: 50%;
+      border: 1.5px solid rgba(255,215,0,.4);
+      background: #0d0b22;
+      flex-shrink: 0;
+    }
+    /* fallback text logo in popup */
+    .popup-logo-text {
+      width: 36px; height: 36px;
+      border-radius: 50%; border: 1.5px solid rgba(255,215,0,.4);
+      background: radial-gradient(circle at 35% 35%,#2a1a6e,#0d0b22);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Bebas Neue',sans-serif; font-size: .75rem;
+      color: var(--gold); letter-spacing: .06em; flex-shrink: 0;
+    }
+    .card-banner-text { flex: 1; text-align: left; }
+    .congrats-line {
+      font-family: 'Bebas Neue',sans-serif;
+      font-size: clamp(1.1rem,3.5vw,1.55rem);
+      letter-spacing: .2em; color: var(--gold);
+      text-shadow: 0 0 18px var(--gold2);
+      white-space: nowrap;
+      text-align: center;
+    }
+    .congrats-sub {
+      font-size: .64rem; letter-spacing: .25em;
+      color: rgba(255,255,255,.42); margin-top: 1px; text-transform: uppercase;
+      text-align: center;
+    }
+
+    .prize-photo-wrap {
+      position: relative; margin: 1.1rem 1.4rem .75rem;
+      border-radius: 18px; overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,.7), 0 0 0 2px rgba(255,215,0,.2);
+      height: 205px; background: #0a0a18;
+    }
+    .prize-photo {
+      width:100%; height:100%; object-fit:cover; display:block;
+      transition: transform .7s ease;
+    }
+    .prize-overlay.show .prize-photo { transform:scale(1.05); }
+    .prize-photo-wrap::after {
+      content:''; position:absolute; inset:0;
+      background: linear-gradient(120deg,transparent 40%,rgba(255,255,255,.09) 50%,transparent 60%);
+      background-size:200% 100%;
+      animation: photoShimmer 2.6s ease-in-out infinite;
+    }
+    @keyframes photoShimmer {
+      from{background-position:200% 0;} to{background-position:-200% 0;}
+    }
+
+    .prize-name {
+      font-family: 'Bebas Neue',sans-serif;
+      font-size: clamp(2rem,7vw,2.9rem);
+      letter-spacing: .1em; color: var(--gold);
+      text-shadow: 0 0 24px var(--gold2);
+      padding: 0 1.4rem; line-height: 1.1;
+    }
+    .prize-brand {
+      font-size: .78rem; font-weight: 600; letter-spacing: .18em;
+      color: rgba(255,255,255,.5); text-transform: uppercase;
+      margin: .3rem 0 .55rem;
+    }
+    .prize-value {
+      display: inline-block;
+      background: linear-gradient(135deg,rgba(255,215,0,.15),rgba(255,165,0,.1));
+      border: 1px solid rgba(255,215,0,.45);
+      border-radius: 50px; padding: .32rem 1.4rem;
+      font-size: .82rem; font-weight:700; letter-spacing:.1em;
+      color: var(--gold); margin-bottom: 1.1rem;
+    }
+
+    .card-actions {
+      display: flex; gap:.8rem; padding:0 1.4rem 1.4rem;
+      justify-content:center; flex-wrap:wrap;
+    }
+    .prize-btn {
+      padding:.72rem 1.8rem; border:none; border-radius:50px;
+      font-family:'Exo 2',sans-serif; font-weight:900;
+      font-size:.93rem; letter-spacing:.06em; cursor:pointer;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg,var(--gold),var(--gold2));
+      color:#1a0800; box-shadow:0 0 24px rgba(255,165,0,.6);
+    }
+    .btn-primary:hover { transform:scale(1.06); box-shadow:0 0 38px rgba(255,165,0,.85); }
+    .btn-primary:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+    .btn-secondary {
+      background:transparent; border:1.5px solid rgba(255,215,0,.35);
+      color:rgba(255,255,255,.55);
+    }
+    .btn-secondary:hover { border-color:var(--gold); color:var(--gold); }
+
+    /* ══════════════════════════════════
+       CLAIM SUCCESS SCREEN
+    ══════════════════════════════════ */
+    .claim-screen {
+      position: fixed; inset: 0; z-index: 200;
+      display: flex; flex-direction:column;
+      align-items: center; justify-content: center;
+      background: radial-gradient(ellipse 120% 120% at 50% 50%, #1a0640 0%, #0a0a14 70%);
+      opacity: 0; pointer-events: none;
+      transition: opacity .5s ease;
+    }
+    .claim-screen.show { opacity:1; pointer-events:all; }
+
+    /* big pulsing ring */
+    .claim-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 3px solid rgba(255,215,0,.5);
+      animation: claimRingPulse 1.6s ease-out infinite;
+    }
+    @keyframes claimRingPulse {
+      0%   { transform:scale(.8);  opacity:.9; }
+      100% { transform:scale(2.8); opacity:0;  }
+    }
+
+    /* check icon */
+    .claim-icon-wrap {
+      position: relative; z-index: 2;
+      width: 120px; height: 120px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #2a1a6e, #0d0b22);
+      border: 3px solid var(--gold);
+      box-shadow: 0 0 50px rgba(255,215,0,.5), 0 0 100px rgba(255,165,0,.25);
+      display: flex; align-items:center; justify-content:center;
+      animation: iconBounce .6s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes iconBounce {
+      from { transform:scale(0) rotate(-180deg); opacity:0; }
+      to   { transform:scale(1) rotate(0deg); opacity:1; }
+    }
+    .claim-check {
+      font-size: 3.5rem; line-height: 1;
+      animation: checkAppear .4s .3s both;
+    }
+    @keyframes checkAppear {
+      from { transform:scale(0); opacity:0; }
+      to   { transform:scale(1); opacity:1; }
+    }
+
+    /* claim logo */
+    .claim-logo {
+      width: 154px; height: 154px; 
+      border-radius: 5%;
+      object-fit: contain;
+      border: 2px solid rgba(255,215,0,.5);
+      background: #0d0b22; margin-bottom: 1.4rem;
+      animation: fadeSlideUp .5s .1s both;
+    }
+    .claim-logo-text {
+      font-family: 'Bebas Neue',sans-serif; font-size: 1.2rem;
+      letter-spacing: .15em; color: var(--gold);
+      margin-bottom: 1.4rem;
+      animation: fadeSlideUp .5s .1s both;
+    }
+
+    .claim-title {
+      font-family: 'Bebas Neue',sans-serif;
+      font-size: clamp(2.2rem,6vw,3.2rem);
+      letter-spacing: .15em; color: var(--gold);
+      text-shadow: 0 0 30px var(--gold2), 0 0 60px rgba(255,165,0,.5);
+      margin-top: 1.4rem;
+      animation: fadeSlideUp .5s .35s both;
+    }
+    .claim-sub {
+      font-size: clamp(.85rem,2.5vw,1rem);
+      color: rgba(255,255,255,.6); letter-spacing: .1em;
+      max-width: 340px; text-align:center; line-height: 1.6;
+      margin-top: .6rem;
+      animation: fadeSlideUp .5s .5s both;
+    }
+    .claim-prize-badge {
+      margin-top: 1rem;
+      background: linear-gradient(135deg,rgba(255,215,0,.15),rgba(255,165,0,.1));
+      border: 1px solid rgba(255,215,0,.45);
+      border-radius: 50px; padding: .45rem 2rem;
+      font-family: 'Bebas Neue',sans-serif;
+      font-size: 1.3rem; letter-spacing: .12em;
+      color: var(--gold);
+      animation: fadeSlideUp .5s .6s both;
+    }
+
+    /* return button */
+    .claim-return-btn {
+      margin-top: 2rem;
+      padding: .8rem 2.4rem;
+      border: none; border-radius: 50px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      font-family: 'Exo 2', sans-serif; font-weight: 900;
+      font-size: 1rem; letter-spacing: .08em;
+      color: #1a0800; cursor: pointer;
+      box-shadow: 0 0 28px rgba(255,165,0,.65);
+      transition: transform .15s, box-shadow .15s;
+      animation: fadeSlideUp .5s .7s both;
+    }
+    .claim-return-btn:hover { transform: scale(1.07); box-shadow: 0 0 42px rgba(255,165,0,.9); }
+    .claim-return-btn:active { transform: scale(.96); }
+
+    @keyframes fadeSlideUp {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ── confetti ── */
+    .confetti-piece {
+      position: fixed; top:-12px; pointer-events:none; z-index:300;
+      border-radius:2px;
+      animation: confettiFall var(--cd,2s) var(--cdelay,0s) ease-in forwards;
+    }
+    @keyframes confettiFall {
+      0%   { transform:translateY(0) rotate(0deg); opacity:1; }
+      100% { transform:translateY(110vh) rotate(720deg); opacity:0; }
+    }
+
+    .hint {
+      position: relative; z-index: 2; margin-top: 1.2rem;
+      font-size: .75rem; letter-spacing: .2em;
+      color: rgba(255,255,255,.28); text-transform: uppercase;
+      animation: hintPulse 2.5s ease-in-out infinite;
+    }
+    @keyframes hintPulse { 0%,100%{opacity:.28;} 50%{opacity:.65;} }
+  </style>
+</head>
+<body>
+
+<div id="stars"></div>
+<div class="bg-pulse"></div>
+<div id="lasers"></div>
+
+<h1 class="title">✦ SPIN &amp; WIN ✦</h1>
+
+<div class="scene" id="scene">
+  <div class="pointer">
+    <svg width="36" height="44" viewBox="0 0 36 44">
+      <polygon points="18,44 0,0 36,0" fill="#FF3030"/>
+      <polygon points="18,44 6,8 30,8"  fill="#FF7070" opacity=".5"/>
+    </svg>
+  </div>
+  <div class="ring ring-outer" id="ringOuter"></div>
+  <div class="ring ring-inner" id="ringInner"></div>
+  <div class="bulbs-ring"      id="bulbsRing"></div>
+  <canvas id="wheelCanvas"></canvas>
+
+  <!-- HUB — logo.png goes here -->
+  <div class="hub" id="hub">
+    <div class="hub-ring"></div>
+    <div class="hub-bg"></div>
+    <img  class="hub-logo-img"
+          src="logo.png"
+          alt="Logo"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/>
+    <span class="hub-logo-text" style="display:none">SPIN</span>
+    <!-- <span class="hub-sub">tap me</span> -->
+  </div>
+</div>
+
+<p class="hint">tap the center logo to spin</p>
+
+<!-- ═══ PRIZE OVERLAY ═══ -->
+<div class="prize-overlay" id="prizeOverlay">
+  <div id="winOrbs"></div>
+
+  <div class="prize-card">
+    <!-- popup top bar with logo -->
+    <div class="card-top-bar">
+      <img  class="popup-logo"
+            src="logo.png"
+            alt="Logo"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+      <div  class="popup-logo-text" style="display:none">W</div>
+      <div class="card-banner-text">
+        <div class="congrats-line">🎊 Congratulations! 🎊</div>
+        <div class="congrats-sub">You've won an exclusive prize</div>
+      </div>
+    </div>
+
+    <div class="prize-photo-wrap">
+      <img id="prizePhoto" class="prize-photo" src="" alt="Prize"/>
+    </div>
+
+    <div class="prize-name"  id="prizeName">Prize</div>
+    <div class="prize-brand" id="prizeBrand">Brand</div>
+    <div class="prize-value" id="prizeValue">⭐ Value</div>
+
+    <div class="card-actions">
+      <button class="prize-btn btn-primary"   id="claimBtn">🎁 Claim Now</button>
+      <button class="prize-btn btn-secondary" id="spinAgainBtn">Spin Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CLAIM SUCCESS SCREEN ═══ -->
+<div class="claim-screen" id="claimScreen">
+  <div class="claim-ring" style="width:140px;height:140px;animation-delay:0s"></div>
+  <div class="claim-ring" style="width:140px;height:140px;animation-delay:.5s"></div>
+  <div class="claim-ring" style="width:140px;height:140px;animation-delay:1s"></div>
+
+  <!-- logo in claim screen -->
+  <img  class="claim-logo"
+        src="logo.png" alt="Logo"
+        id="claimLogoImg"
+        onerror="this.style.display='none';document.getElementById('claimLogoText').style.display='block'"/>
+  <div  class="claim-logo-text" id="claimLogoText" style="display:none">✦ SPIN &amp; WIN ✦</div>
+
+  <div class="claim-icon-wrap">
+    <span class="claim-check">🎉</span>
+  </div>
+
+  <div class="claim-title">PRIZE CLAIMED!</div>
+  <div class="claim-sub">
+    Our team will contact you within <strong>24 hours</strong> to process your prize. Keep your phone handy! <br>
+    <span style="font-size: 10px;" >**Prizes Cost around ₹10 Lakh will be provided in 3 steps.**</span>
+  </div>
+  <div class="claim-prize-badge" id="claimPrizeBadge">—</div>
+
+  <button class="claim-return-btn" id="returnBtn">🎡 Return to Wheel</button>
+</div>
+
+<script>
+(function(){
+
+  /* ════ PRIZES ════ */
+  const prizes = [
+    {
+      label:"Car 50% OFF", brand:"Toyata Glanza",
+      value:"⭐ Upto ₹10 Lakh Savings", color:"#FF2D55", text:"#fff",
+      weight:42, emoji:"🚗",
+      img:"images/toyotaGlanza.jpg"
+    },
+    {
+      label:"Car 30% OFF", brand:"Toyata Glanza",
+      value:"⭐ Upto ₹5 Lakh Savings", color:"#FF6B00", text:"#fff",
+      weight:18, emoji:"🚗",
+      img:"images/toyotaGlanza.jpg"
+    },
+    {
+      label:"Car 40% OFF", brand:"Toyata Glanza",
+      value:"⭐ Upto ₹7 Lakh Savings", color:"#FF9F0A", text:"#fff",
+      weight:16, emoji:"🚗",
+      img:"images/toyotaGlanza.jpg"
+    },
+    {
+      label:"EV Cycle", brand:"Hero Electric · Ather · Ola",
+      value:"⭐ Worth ₹1.2 Lakh", color:"#34C759", text:"#fff",
+      weight:10, emoji:"🚲",
+      img:"images/evmotorcycle.jpg"
+    },
+    {
+      label:"iPhone 17 Pro", brand:"Apple",
+      value:"⭐ Worth ₹1.34 Lakh", color:"#636366", text:"#fff",
+      weight:6, emoji:"📱",
+      img:"images/iphone17pro.jpg"
+    },
+    {
+      label:"iPhone 17 Pro Max", brand:"Apple",
+      value:"⭐ Worth ₹1.59 Lakh", color:"#5E5CE6", text:"#fff",
+      weight:5, emoji:"📱",
+      img:"images/iphone17promax.jpg"
+    },
+    {
+      label:"DSLR Camera", brand:"Canon · Nikon · Sony",
+      value:"⭐ Worth ₹85,000", color:"#007AFF", text:"#fff",
+      weight:3, emoji:"📷",
+      img:"images/DslrCamera.jpg"
+    },
+  ];
+
+  const totalWeight = prizes.reduce((s,p)=>s+p.weight,0);
+  function weightedRandom(){
+    let r=Math.random()*totalWeight, acc=0;
+    for(let i=0;i<prizes.length;i++){ acc+=prizes[i].weight; if(r<acc) return i; }
+    return 0;
+  }
+
+  /* ════ SIZING ════ */
+  const vmin=Math.min(window.innerWidth,window.innerHeight);
+  const SZ=Math.min(Math.floor(vmin*.70),500), R=SZ/2;
+  document.documentElement.style.setProperty('--sz',SZ+'px');
+
+  const canvas=document.getElementById('wheelCanvas');
+  canvas.width=canvas.height=SZ;
+  const ctx=canvas.getContext('2d');
+  const N=prizes.length, ARC=(Math.PI*2)/N;
+
+  ['ringOuter','ringInner'].forEach((id,i)=>{
+    const el=document.getElementById(id), d=i===0?SZ+28:SZ+10;
+    el.style.cssText+=`width:${d}px;height:${d}px;position:absolute;border-radius:50%;`;
+  });
+
+  const hub=document.getElementById('hub');
+  hub.style.width=hub.style.height=(Math.floor(R*.22)*2)+'px';
+
+  /* bulbs */
+  const bulbsRing=document.getElementById('bulbsRing');
+  bulbsRing.style.width=bulbsRing.style.height='1px';
+  for(let i=0;i<24;i++){
+    const a=(i/24)*Math.PI*2-Math.PI/2;
+    const b=document.createElement('div'); b.className='bulb';
+    b.style.left=Math.cos(a)*(R+4)+'px'; b.style.top=Math.sin(a)*(R+4)+'px';
+    b.style.setProperty('--bd',(.5+Math.random()*.9)+'s');
+    b.style.setProperty('--bdelay',(Math.random()*.9)+'s');
+    bulbsRing.appendChild(b);
+  }
+
+  /* stars */
+  for(let i=0;i<130;i++){
+    const s=document.createElement('div'); s.className='star';
+    const sz=Math.random()*2.5+.4;
+    s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;
+      width:${sz}px;height:${sz}px;
+      --d:${(2+Math.random()*4).toFixed(1)}s;
+      --op:${(.2+Math.random()*.8).toFixed(2)};
+      animation-delay:${(Math.random()*6).toFixed(1)}s;`;
+    document.getElementById('stars').appendChild(s);
+  }
+
+  /* ════ DRAW WHEEL ════ */
+  function drawWheel(rotation){
+    ctx.clearRect(0,0,SZ,SZ);
+    for(let i=0;i<N;i++){
+      const start=rotation+i*ARC, end=start+ARC, p=prizes[i];
+      ctx.beginPath(); ctx.moveTo(R,R); ctx.arc(R,R,R,start,end); ctx.closePath();
+      ctx.fillStyle=p.color; ctx.fill();
+
+      const gr=ctx.createRadialGradient(R,R,R*.15,R,R,R);
+      gr.addColorStop(0,'rgba(255,255,255,.2)'); gr.addColorStop(1,'rgba(0,0,0,.18)');
+      ctx.beginPath(); ctx.moveTo(R,R); ctx.arc(R,R,R,start,end); ctx.closePath();
+      ctx.fillStyle=gr; ctx.fill();
+
+      ctx.beginPath(); ctx.moveTo(R,R);
+      ctx.lineTo(R+Math.cos(start)*R,R+Math.sin(start)*R);
+      ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=2; ctx.stroke();
+
+      ctx.save();
+      ctx.translate(R,R); ctx.rotate(start+ARC/2);
+      ctx.textAlign='right'; ctx.fillStyle=p.text;
+      ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=6;
+
+      const eS=Math.max(13,Math.floor(R*.08));
+      ctx.font=`${eS}px serif`;
+      ctx.fillText(p.emoji,R*.82,eS*.38);
+
+      const lS=Math.max(9,Math.floor(R*.054));
+      ctx.font=`800 ${lS}px 'Exo 2',sans-serif`;
+      p.label.split(' ').forEach((pt,pi)=>{
+        ctx.fillText(pt,R*.82,eS*.38+(lS+2)*(pi+1));
+      });
+      ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(R,R,R-1.5,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=3; ctx.stroke();
+  }
+
+  /* ════ SPIN ════ */
+  let currentAngle=0, spinning=false;
+  drawWheel(currentAngle);
+
+  function getWinner(angle){
+    const norm=((-(angle+Math.PI/2))%(Math.PI*2)+Math.PI*2)%(Math.PI*2);
+    return Math.floor(norm/ARC)%N;
+  }
+
+  function spin(){
+    if(spinning) return;
+    spinning=true;
+    hub.style.transform='scale(.88)';
+    setTimeout(()=>{ hub.style.transform=''; },160);
+
+    const targetIdx=weightedRandom();
+    const extraSpins=(6+Math.floor(Math.random()*5))*Math.PI*2;
+    const targetAngle=-(targetIdx*ARC+ARC/2+Math.PI/2);
+    const diff=((targetAngle-currentAngle%(Math.PI*2))+Math.PI*2*20)%(Math.PI*2);
+    const totalRot=extraSpins+diff;
+    const duration=5000+Math.random()*1500;
+    const startAngle=currentAngle;
+    let startTime=null;
+
+    function easeOut(t){ return 1-Math.pow(1-t,4.2); }
+    function animate(ts){
+      if(!startTime) startTime=ts;
+      const t=Math.min((ts-startTime)/duration,1);
+      currentAngle=startAngle+totalRot*easeOut(t);
+      drawWheel(currentAngle);
+      if(t<1){ requestAnimationFrame(animate); }
+      else {
+        currentAngle=startAngle+totalRot;
+        drawWheel(currentAngle); spinning=false;
+        setTimeout(()=>showPrize(prizes[getWinner(currentAngle)]),400);
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+
+  /* ════ PRIZE POPUP ════ */
+  function showPrize(prize){
+    document.getElementById('prizeName').textContent =prize.label;
+    document.getElementById('prizeBrand').textContent=prize.brand;
+    document.getElementById('prizeValue').textContent=prize.value;
+    document.getElementById('prizePhoto').src        =prize.img;
+    document.getElementById('claimBtn').disabled     =false;
+    document.getElementById('claimBtn').textContent  ='🎁 Claim Now';
+    document.getElementById('prizeOverlay').classList.add('show');
+    spawnOrbs(prize.color); spawnLasers(prize.color); launchConfetti();
+  }
+
+  document.getElementById('spinAgainBtn').addEventListener('click',()=>{
+    closePrize(); setTimeout(spin,350);
+  });
+  document.getElementById('prizeOverlay').addEventListener('click',function(e){
+    if(e.target===this) closePrize();
+  });
+
+  function closePrize(){
+    document.getElementById('prizeOverlay').classList.remove('show');
+    document.getElementById('winOrbs').innerHTML='';
+    document.getElementById('lasers').innerHTML='';
+  }
+
+  /* ════ CLAIM NOW ════ */
+  document.getElementById('claimBtn').addEventListener('click',()=>{
+    const prizeName=document.getElementById('prizeName').textContent;
+
+    // button feedback
+    const btn=document.getElementById('claimBtn');
+    btn.disabled=true; btn.textContent='✔ Claimed!';
+
+    // hide prize overlay after short delay
+    setTimeout(()=>{
+      closePrize();
+      showClaimScreen(prizeName);
+    }, 600);
+  });
+
+  let confettiLoop = null;
+let clapLoop     = null;
+
+// 🎵 external applause audio
+let clapAudio = new Audio("driken5482-applause-cheer-236786.mp3");
+clapAudio.loop = true;
+clapAudio.volume = 0.8;
+
+function startClapping() {
+  clapAudio.currentTime = 0;
+  clapAudio.play().catch(() => {});
+}
+
+function stopClapping() {
+  clapAudio.pause();
+  clapAudio.currentTime = 0;
+}
+
+function showClaimScreen(prizeName){
+  document.getElementById('claimPrizeBadge').textContent = prizeName;
+  document.getElementById('claimScreen').classList.add('show');
+
+  launchConfetti();
+  confettiLoop = setInterval(launchConfetti, 800);
+
+  // ▶️ start continuous real applause
+  startClapping();
+}
+
+document.getElementById('returnBtn').addEventListener('click', () => {
+  clearInterval(confettiLoop);
+  confettiLoop = null;
+
+  stopClapping(); // 🔇 stop sound
+
+  document.getElementById('claimScreen').classList.remove('show');
+});
+  /* ════ WIN ORBS ════ */
+  const ORB_BASE=['#FFD700','#FF6B00','#FF2D55','#AF52DE','#007AFF','#34C759'];
+  function spawnOrbs(color){
+    const wrap=document.getElementById('winOrbs'); wrap.innerHTML='';
+    const cols=[color,...ORB_BASE];
+    for(let i=0;i<14;i++){
+      const o=document.createElement('div'), sz=50+Math.random()*200;
+      o.className='win-orb';
+      o.style.cssText=`width:${sz}px;height:${sz}px;
+        left:${Math.random()*100}vw;top:${Math.random()*100}vh;
+        background:radial-gradient(circle,${cols[i%cols.length]}44,transparent 70%);
+        --od:${(4+Math.random()*5).toFixed(1)}s;
+        --odel:${(Math.random()*2).toFixed(1)}s;
+        --ox:${(Math.random()*80-40).toFixed(0)}px;
+        --oy:${(Math.random()*80-40).toFixed(0)}px;`;
+      wrap.appendChild(o);
+    }
+  }
+
+  /* ════ LASER BEAMS ════ */
+  const LASER_C=['#FFD700','#FF2D55','#AF52DE','#007AFF','#34C759','#FF6B00','#fff'];
+  function spawnLasers(color){
+    const wrap=document.getElementById('lasers'); wrap.innerHTML='';
+    for(let i=0;i<7;i++){
+      const l=document.createElement('div'), la=-45+i*12, lb=la+24;
+      l.className='laser';
+      l.style.cssText=`left:${5+i*13}vw;bottom:0;
+        height:${50+Math.random()*40}vh;
+        background:linear-gradient(to top,${i===0?color:LASER_C[i%LASER_C.length]}cc,transparent);
+        --ls:${(2.5+Math.random()*2).toFixed(1)}s;
+        --ld:${(i*.22).toFixed(2)}s;
+        --la:${la}deg;--lb:${lb}deg;`;
+      wrap.appendChild(l);
+    }
+  }
+
+  /* ════ CONFETTI ════ */
+  const CONF=['#FFD700','#FF2D55','#AF52DE','#007AFF','#34C759','#FF6B00','#fff','#FF9F0A'];
+  function launchConfetti(){
+    for(let i=0;i<110;i++){
+      const c=document.createElement('div'), w=7+Math.random()*9, h=w*(1.2+Math.random()*.8);
+      c.className='confetti-piece';
+      c.style.cssText=`left:${Math.random()*100}vw;width:${w}px;height:${h}px;
+        background:${CONF[Math.floor(Math.random()*CONF.length)]};
+        transform:rotate(${Math.random()*360}deg);
+        --cd:${(1.4+Math.random()*2.2).toFixed(1)}s;
+        --cdelay:${(Math.random()*.9).toFixed(2)}s;`;
+      document.body.appendChild(c);
+      setTimeout(()=>c.remove(),4500);
+    }
+  }
+
+  hub.addEventListener('click',spin);
+
+  /* ════ SOUNDS (Web Audio API — no files needed) ════ */
+  const AC = new (window.AudioContext || window.webkitAudioContext)();
+
+  function playTick() {
+    const buf = AC.createBuffer(1, AC.sampleRate * 0.02, AC.sampleRate);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 8);
+    const src = AC.createBufferSource();
+    const g   = AC.createGain();
+    g.gain.setValueAtTime(0.18, AC.currentTime);
+    src.buffer = buf;
+    src.connect(g); g.connect(AC.destination);
+    src.start();
+  }
+
+  function playWin() {
+    [[523,.0],[659,.12],[784,.24],[1047,.4]].forEach(([freq,when])=>{
+      const o = AC.createOscillator();
+      const g = AC.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(freq, AC.currentTime+when);
+      g.gain.setValueAtTime(0, AC.currentTime+when);
+      g.gain.linearRampToValueAtTime(0.28, AC.currentTime+when+0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+when+0.45);
+      o.connect(g); g.connect(AC.destination);
+      o.start(AC.currentTime+when);
+      o.stop(AC.currentTime+when+0.5);
+    });
+  }
+
+  function playSlowTick() {
+    const o = AC.createOscillator();
+    const g = AC.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(180, AC.currentTime);
+    g.gain.setValueAtTime(0.08, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+0.06);
+    o.connect(g); g.connect(AC.destination);
+    o.start(); o.stop(AC.currentTime+0.06);
+  }
+
+  /* hook ticks into spin animation */
+  const _origSpin = spin;
+  (function(){
+    const origAnimate = window._spinAnimate;
+    let lastSeg = -1, tickCount = 0, spinStartTime = 0, totalSpinDur = 0;
+
+    hub.removeEventListener('click', spin);
+
+    hub.addEventListener('click', function(){
+      if (spinning) return;
+      AC.resume();
+      spinStartTime = performance.now();
+
+      const targetIdx  = weightedRandom();
+      const extraSpins = (6+Math.floor(Math.random()*5))*Math.PI*2;
+      const targetAngle= -(targetIdx*ARC+ARC/2+Math.PI/2);
+      const diff       = ((targetAngle-currentAngle%(Math.PI*2))+Math.PI*2*20)%(Math.PI*2);
+      const totalRot   = extraSpins+diff;
+      totalSpinDur     = 5000+Math.random()*1500;
+
+      spinning=true;
+      hub.style.transform='scale(.88)';
+      setTimeout(()=>{ hub.style.transform=''; },160);
+
+      const startAngle=currentAngle;
+      let startTime=null;
+
+      function easeOut(t){ return 1-Math.pow(1-t,4.2); }
+
+      function animate(ts){
+        if(!startTime) startTime=ts;
+        const t    = Math.min((ts-startTime)/totalSpinDur,1);
+        const angle= startAngle+totalRot*easeOut(t);
+        currentAngle=angle;
+        drawWheel(angle);
+
+        // figure out which segment is under pointer
+        const norm = ((-(angle+Math.PI/2))%(Math.PI*2)+Math.PI*2)%(Math.PI*2);
+        const seg  = Math.floor(norm/ARC)%N;
+        if(seg !== lastSeg){
+          lastSeg = seg;
+          tickCount++;
+          const progress = easeOut(t);
+          // fast ticks early, slow ticks near end
+          if(progress < 0.80) playTick();
+          else                 playSlowTick();
+        }
+
+        if(t<1){
+          requestAnimationFrame(animate);
+        } else {
+          currentAngle=startAngle+totalRot;
+          drawWheel(currentAngle); spinning=false;
+          setTimeout(()=>{
+            playWin();
+            showPrize(prizes[getWinner(currentAngle)]);
+          },400);
+        }
+      }
+      requestAnimationFrame(animate);
+    });
+  })();
+
+})();
+</script>
+</body>
+</html>
